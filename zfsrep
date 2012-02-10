@@ -1,0 +1,165 @@
+#!/bin/sh -
+#
+# $Id: zfsrep,v 1.1 2012/02/10 12:56:20 e52202 Exp $
+#
+############################################################################
+#
+# zfsrep
+#
+# Usage: zfsrep [-m] -n snapname srcpool destpool
+#
+# This script automates incremental ZFS snapshot replication, but is really
+# specific to my particular setup; hence the "-m Import destination pool"
+# option utilizes camcontrol(8) to attach my external destination pool
+# via eSATA in a way that is particular to my particular setup. Curse
+# non-hot-swappable IDE/ATAPI controllers masquerading as eSATA; cheapest
+# bidder for Microserver components, HP?
+#
+# If '-m' was specified and the import successfuly, the pool will be
+# exported prior to script exit.  If '-m' is not specified, the script will
+# exit if the pool is not already imported, and will not export the pool if
+# the pool was mounted.
+#
+# "snapname" is more a "type" (eg "weekly") than the actual full name as
+# there are likely more than one snapshot of a particular type. Hence
+# the whole idea of an script that works on incremental snapshots.
+#
+# Author: Adrian Waters <awaters@draenan.net>
+#
+############################################################################
+
+IFS=' 	
+'
+PATH=/bin:/usr/bin
+
+progname=${0##*/}
+
+usage () {
+    echo "Usage: $progname [-m] -n snapname srcpool destpool" >&2
+    exit 1
+}
+
+expool () {
+    if [ ! -z "$imported" ]; then
+        $ZPOOL export $destpool > /dev/null 2>&1
+            if [ "$?" -ne "0" ]; then
+                echo "$progname: Could not export \"$destpool\". Exiting." >&2
+                exit 1
+            fi  
+    fi
+}
+
+case $(/usr/bin/uname -sr) in
+    "FreeBSD 9"*)
+        ID=/usr/bin/id
+        CAMCONTROL=/sbin/camcontrol
+        GREP=/usr/bin/grep
+        ZPOOL=/sbin/zpool
+        ZFS=/sbin/zfs
+        DATE=/bin/date
+        AWK=/usr/bin/awk
+        SED=/usr/bin/sed
+        ;;
+    *)
+        echo "$progname: FreeBSD 9.0-RELEASE and above only." >&2
+        exit 1
+        ;;
+esac        
+
+if [ "$#" -lt 4 ]; then
+    usage
+fi    
+
+if [ $($ID -u) -ne "0" ]; then
+    echo "You need to be root." >&2
+    exit 1
+fi    
+
+snapname= import= srcpool= destpool=
+
+while getopts :mn: opt; do
+    case $opt in
+        n)
+            snapname=$OPTARG
+            ;;
+        m)
+            import=1
+            imported=
+            ;;
+        '?')
+            usage
+            ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+srcpool=$1
+destpool=$2
+
+if [ -z "$srcpool" -o -z "$destpool" -o -z "$snapname" ]; then
+    usage
+    exit 1
+fi
+
+echo $snapname | $GREP -E '[^-_.:[:alnum:]]' > /dev/null 2>&1
+if [ "$?" -eq "0" ]; then
+    echo "$progname: \"$snapname\" is not a valid ZFS snapshot name." >&2
+    exit 1
+fi
+
+for pool in $srcpool $destpool; do
+    echo $pool | $GREP -E '^(c[0-9].*|mirror|raidz|spare|log)$|[^-_.[:alnum:]]' > /dev/null 2>&1
+    if [ "$?" -eq "0" ]; then
+        echo "$progname: \"$pool\" is not a valid ZFS pool name." >&2
+        exit 1
+    fi
+    $ZPOOL list -H -o name $pool > /dev/null 2>&1
+    if [ "$?" -ne "0" ]; then
+        if [ "X$pool" == "X$srcpool" -o -z "$import" ]; then
+           echo "$progname: \"$pool\" is not available. Exiting." >&2
+           exit 1
+        else
+            $ZPOOL import $destpool > /dev/null 2>&1
+            if [ "$?" -ne "0" ]; then
+                busno=$($CAMCONTROL devlist | $AWK 'END { sub(/scbus/,""); print $5+1 }')
+                ($CAMCONTROL reset $busno && $CAMCONTROL rescan $busno) > /dev/null 2>&1
+                if [ "$?" -ne "0" ]; then
+                    echo "$progname: Could not attach backup device on scbus$busno. Exiting." >&2
+                    exit 1
+                fi
+                $ZPOOL import $destpool > /dev/null 2>&1
+                if [ "$?" -ne "0" ]; then
+                    echo "$progname: Could not import ZFS pool \"$destpool\". Exiting." >&2
+                    exit 1
+                fi  
+            fi
+        imported=1
+        fi  
+    fi  
+done
+
+snaps=$($ZFS list -r -t snapshot -H -o name -s creation $srcpool | $GREP "$srcpool@$snapname" | $SED "s/$srcpool@//")
+lastsnap=$(echo $snaps | $AWK '{ print $NF }')
+lastrep=$($ZFS list -r -t snapshot -H -o name -s creation $destpool | $GREP "$destpool@$snapname" | $AWK -F@ 'END { print $NF }')
+
+if [ "X$lastsnap" == "X$lastrep" ]; then
+    echo "$progname: No new snapshots to send. Exiting." >&2
+    expool
+    exit 1
+fi
+
+echo $snaps | $GREP $lastrep > /dev/null 2>&1
+if [ "$?" -eq "0" ]; then
+    start=$lastrep
+else
+    echo "$progname: The last-replicated snapshot \"$srcpool@$lastrep\" no longer exists. Exiting."
+    expool
+    exit 1
+fi
+
+$ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F $destpool
+expool
+exit
+
+# vi: set tabstop=4 shiftwidth=4 si ai nu:
