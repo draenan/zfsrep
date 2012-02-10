@@ -1,12 +1,12 @@
 #!/bin/sh -
 #
-# $Id: zfsrep,v 1.1 2012/02/10 12:56:20 e52202 Exp $
+# $Id: zfsrep,v 1.2 2012/02/10 13:01:54 e52202 Exp $
 #
 ############################################################################
 #
 # zfsrep
 #
-# Usage: zfsrep [-m] -n snapname srcpool destpool
+# Usage: zfsrep [-m] -s snapname srcpool destpool
 #
 # This script automates incremental ZFS snapshot replication, but is really
 # specific to my particular setup; hence the "-m Import destination pool"
@@ -35,7 +35,7 @@ PATH=/bin:/usr/bin
 progname=${0##*/}
 
 usage () {
-    echo "Usage: $progname [-m] -n snapname srcpool destpool" >&2
+    echo "Usage: $progname [-m] -s snapname srcpool destpool" >&2
     exit 1
 }
 
@@ -77,9 +77,9 @@ fi
 
 snapname= import= srcpool= destpool=
 
-while getopts :mn: opt; do
+while getopts :ms: opt; do
     case $opt in
-        n)
+        s)
             snapname=$OPTARG
             ;;
         m)
