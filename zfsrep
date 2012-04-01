@@ -1,6 +1,6 @@
 #!/bin/sh -
 #
-# $Id: zfsrep,v 1.6 2012/04/01 13:29:36 awaters Exp $
+# $Id: zfsrep,v 1.7 2012/04/01 16:02:08 awaters Exp $
 #
 ############################################################################
 #
@@ -87,6 +87,8 @@ case $(/usr/bin/uname -sr) in
         ;;
 esac
 
+# Ensure we have the correct number of arguments, and are running as root.
+
 if [ "$#" -lt 4 ]; then
     usage
 fi
@@ -95,6 +97,8 @@ if [ $($ID -u) -ne "0" ]; then
     echo "You need to be root." >&2
     exit 1
 fi
+
+# Gather the arguments.
 
 scrubdest= snapname= import= srcpool= destpool=
 
@@ -138,8 +142,8 @@ fi
 # automatically translated to "_".  As this script is intended for
 # FreeBSD it treates ":" as an invalid character.
 
-echo $snapname | $GREP -E '[^-_.:[:alnum:]]' > /dev/null 2>&1
-if [ "$?" -eq "0" ]; then
+echo $snapname | $GREP -E '^[[:alpha:]]' | $GREP -Ev '[^-_.:[:alnum:]]' > /dev/null 2>&1
+if [ "$?" -eq "1" ]; then
     echo "$progname: \"$snapname\" is not a valid ZFS snapshot name." >&2
     exit 1
 fi
@@ -151,8 +155,8 @@ fi
 # requested via the "-m" option), otherwise the script will exit.
 
 for pool in $srcpool $destpool; do
-    echo $pool | $GREP -E '^(c[0-9].*|mirror|raidz|spare|log)$|[^-_.[:alnum:]]' > /dev/null 2>&1
-    if [ "$?" -eq "0" ]; then
+    echo $pool | $GREP -E '^[[:alpha:]]' | $GREP -Ev '^(c[0-9].*|mirror|raidz|spare|log)$|[^-_.[:alnum:]]' > /dev/null 2>&1
+    if [ "$?" -eq "1" ]; then
         echo "$progname: \"$pool\" is not a valid ZFS pool name." >&2
         exit 1
     fi
@@ -226,6 +230,7 @@ fi
 # pipe.
 
 $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F $destpool
+$ZFS set readonly=on $destpool
 expool
 exit
 
