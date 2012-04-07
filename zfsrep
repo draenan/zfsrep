@@ -1,6 +1,6 @@
 #!/bin/sh -
 #
-# $Id: zfsrep,v 1.7 2012/04/01 16:02:08 awaters Exp $
+# $Id: zfsrep,v 1.8 2012/04/07 13:31:45 awaters Exp $
 #
 ############################################################################
 #
@@ -68,7 +68,8 @@ expool () {
 
 # There isn't any reason that I can think of why this script wouldn't work on
 # FreeBSD RELENG_8 or Solaris 10+, I simply haven't tested it. Plus the
-# pool-mounting logic is *very* specific to my own FreeBSD 9 system.
+# pool-mounting logic is *very* specific to my own FreeBSD 9 system and its
+# non-hot-pluggable eSATA controller.
 
 case $(/usr/bin/uname -sr) in
     "FreeBSD 9"*)
@@ -134,13 +135,11 @@ fi
 
 # Sanitize the input for "snapname."
 #
-# Note that the ":" character is valid for ZFS snapshot names, 
-# but will cause issues if you are sharing that filesystem via
-# Samba and expect to be able to access snapshots from the ".zfs"
-# directory.  This problem does not exist on Solaris as SMB sharing
-# is intgrated via the ZFS "sharesmb" option, with ":" being
-# automatically translated to "_".  As this script is intended for
-# FreeBSD it treates ":" as an invalid character.
+# Note that the ":" character is valid for ZFS filesystem/snapshot names, 
+# but will cause issues on FreeBSD if you are sharing that filesystem via
+# userland Samba.  This problem does not exist on Solaris as CIFS sharing is
+# integrated into the kernel and controlled via the ZFS "sharesmb" property,
+# with ":" being automatically translated to "_".
 
 echo $snapname | $GREP -E '^[[:alpha:]]' | $GREP -Ev '[^-_.:[:alnum:]]' > /dev/null 2>&1
 if [ "$?" -eq "1" ]; then
@@ -209,27 +208,33 @@ if [ "X$lastsnap" == "X$lastrep" ]; then
 fi
 
 # Check that the last replicated snapshot is still available on the source
-# pool.  If not (presumably because there is a rolling snapshot schedule in
-# place and the replication hasn't happened in time for the last rep to fall
-# off the list) don't do anything as we can't perform incremental replication
-# from a non-existant source.
+# pool (unless there was no lastrep, in which case assume this is the first
+# replication.)  If not (presumably because there is a rolling snapshot
+# schedule in place and the replication hasn't happened in time for the last
+# rep to fall off the list) don't do anything as we can't perform incremental
+# replication from a non-existant source.
 
 echo $snaps | $GREP $lastrep > /dev/null 2>&1
 if [ "$?" -eq "0" ]; then
     start=$lastrep
 else
-    echo "$progname: The last-replicated snapshot \"$srcpool@$lastrep\" no longer exists. Exiting."
-    expool
-    exit 1
+    if [ ! -z "$lastrep" ]; then
+        echo "$progname: The last-replicated snapshot \"$srcpool@$lastrep\" no longer exists. Exiting."
+        expool
+        exit 1
+    fi  
 fi
 
-# Perform the incremental snapshot replication between the source and
-# destination pools. Once done, scrub or export the destination pool
-# as required. Ideally I should check for errors here but can't
-# currently think of how to retrieve exit codes from both sides of a
-# pipe.
+# Perform the snapshot replication between the source and destination pools.
+# Once done, scrub or export the destination pool as required. Ideally I
+# should check for errors here but can't currently think of how to retrieve
+# exit codes from both sides of a pipe.
 
-$ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F $destpool
+if [ -z "$lastrep" ]; then
+    $ZFS send -R $srcpool@$lastsnap | $ZFS recv -d -F $destpool
+else
+    $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F $destpool
+fi  
 $ZFS set readonly=on $destpool
 expool
 exit
