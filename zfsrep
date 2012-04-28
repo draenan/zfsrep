@@ -1,6 +1,6 @@
 #!/bin/sh -
 #
-# $Id: zfsrep,v 1.8 2012/04/07 13:31:45 awaters Exp $
+# $Id: zfsrep,v 1.9 2012/04/28 12:52:52 awaters Exp $
 #
 ############################################################################
 #
@@ -8,12 +8,12 @@
 #
 # Usage: zfsrep [-m] [-S] -s snapname srcpool destpool
 #
-# This script automates incremental ZFS snapshot replication, but is really
-# specific to my particular setup; hence the "-m Import destination pool"
-# option utilizes camcontrol(8) to attach my external destination pool
-# via eSATA in a way that is particular to my particular setup. Curse
-# non-hot-swappable IDE/ATAPI controllers masquerading as eSATA; cheapest
-# bidder for Microserver components, HP?
+# This script automates incremental ZFS snapshot replication.
+#
+# If the "-m" option is specified and the destination pool is not already 
+# imported an attempt will be made to import it. If "-m" is not
+# specified the script will exit if the destination pool was not already
+# imported.
 #
 # If '-m' was specified and the import successfuly, the pool will be
 # exported prior to script exit, unless "-S" was specified, in which case
@@ -28,9 +28,10 @@
 # Assumption: This script will be used to replicate online pools. If
 #             "srcpool" is not online the script will exit. Checks for
 #             an online state may be considered inadequate in the script's
-#             current state.  The script also requires you to be running
-#             FreeBSD 9 or higher; it is untested on FreeBSD 8, nor is it
-#             tested on Solaris.
+#             current state.  The script is tested on FreeBSD 9.0-RELEASE
+#             only, but should work on FreeBSD 8.0-RELEASE and above.  It
+#             should also work on Solaris 10 and above, but this is
+#             completely untested.
 #
 # Author: Adrian Waters <awaters@draenan.net>
 #
@@ -66,15 +67,13 @@ expool () {
     fi
 }
 
-# There isn't any reason that I can think of why this script wouldn't work on
-# FreeBSD RELENG_8 or Solaris 10+, I simply haven't tested it. Plus the
-# pool-mounting logic is *very* specific to my own FreeBSD 9 system and its
-# non-hot-pluggable eSATA controller.
-
-case $(/usr/bin/uname -sr) in
-    "FreeBSD 9"*)
+case $(/usr/bin/uname -s) in
+    "FreeBSD")
+        if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f1) -lt "8" ]; then
+            echo "FreeBSD 8.0-RELEASE and above only." >&2
+            exit 1
+        fi  
         ID=/usr/bin/id
-        CAMCONTROL=/sbin/camcontrol
         GREP=/usr/bin/grep
         ZPOOL=/sbin/zpool
         ZFS=/sbin/zfs
@@ -82,8 +81,22 @@ case $(/usr/bin/uname -sr) in
         AWK=/usr/bin/awk
         SED=/usr/bin/sed
         ;;
+    "SunOS")
+        if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f2) -lt "10" ]; then
+            echo "Solaris 10 and above only." >&2
+            exit 1
+        fi  
+        echo "WARNING: This script has not been tested on Solaris!" >&2
+        ID=/usr/bin/id
+        GREP=/usr/xpg4/bin/grep
+        ZPOOL=/usr/sbin/zpool
+        ZFS=/usr/sbin/zfs
+        DATE=/usr/bin/date
+        AWK=/usr/xpg4/bin/awk
+        SED=/usr/xpg4/bin/sed
+        ;;
     *)
-        echo "$progname: FreeBSD 9.0-RELEASE and above only." >&2
+        echo "$progname: FreeBSD 8.0-RELEASE and above or Solaris 10 and above only." >&2
         exit 1
         ;;
 esac
@@ -167,25 +180,8 @@ for pool in $srcpool $destpool; do
         else
             $ZPOOL import $destpool > /dev/null 2>&1
             if [ "$?" -ne "0" ]; then
-
-                # Interesting idea below, but ultimately pointless, and wrong if a USB
-                # disk is plugged in. Hard-coding instead.
-                #
-                # This section of code will need to be isolated should I convert this
-                # script to one suitable for systems other than my own.
-
-                #busno=$($CAMCONTROL devlist | $AWK 'END { sub(/scbus/,""); print $5+1 }')
-                busno=6
-                ($CAMCONTROL reset $busno && $CAMCONTROL rescan $busno) > /dev/null 2>&1
-                if [ "$?" -ne "0" ]; then
-                    echo "$progname: Could not attach backup device on scbus$busno. Exiting." >&2
-                    exit 1
-                fi
-                $ZPOOL import $destpool > /dev/null 2>&1
-                if [ "$?" -ne "0" ]; then
-                    echo "$progname: Could not import ZFS pool \"$destpool\". Exiting." >&2
-                    exit 1
-                fi
+               echo "$progname: Could not import ZFS pool \"$destpool\". Exiting." >&2
+               exit 1
             fi
             imported=1
         fi
