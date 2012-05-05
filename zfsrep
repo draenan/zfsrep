@@ -1,6 +1,6 @@
 #!/bin/sh -
 #
-# $Id: zfsrep,v 1.9 2012/04/28 12:52:52 awaters Exp $
+# $Id: zfsrep,v 1.10 2012/05/05 15:40:58 awaters Exp $
 #
 ############################################################################
 #
@@ -55,7 +55,7 @@ usage () {
 expool () {
     if [ ! -z "$scrubdest" ]; then
         imported=
-        $ZFS scrub $destpool
+        $ZPOOL scrub $destpool
     else
         if [ ! -z "$imported" ]; then
         $ZPOOL export $destpool > /dev/null 2>&1
