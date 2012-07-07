@@ -1,6 +1,6 @@
 #!/bin/sh -
 #
-# $Id: zfsrep,v 1.14 2012/06/23 14:30:50 awaters Exp $
+# $Id: zfsrep,v 1.15 2012/07/07 14:22:05 awaters Exp $
 #
 ############################################################################
 #
@@ -236,7 +236,6 @@ if [ -z "$lastrep" ]; then
 else
     $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F $destpool
 fi  
-$ZFS set readonly=on $destpool
 expool
 exit
 
