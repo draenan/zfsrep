@@ -29,13 +29,7 @@
 #             "srcpool" is not online the script will exit. Checks for
 #             an online state may be considered inadequate in the script's
 #             current state.  The script is tested on FreeBSD 9.0-RELEASE
-#             only, but should work on FreeBSD 8.0-RELEASE and above.  It
-#             should also work on Solaris 10 and above, but this is
-#             completely untested.
-#
-# SOLARIS 10 USERS: You *must* replace "/bin/sh" with "/usr/xpg4/bin/sh" at
-#                   line 1, because "/bin/sh" is not POSIX compliant in
-#                   Solaris 10.
+#             only, but should work on FreeBSD 8.0-RELEASE and above.
 #
 # Author: Adrian Waters <awaters@draenan.net>
 #
@@ -71,39 +65,17 @@ expool () {
     fi
 }
 
-case $(/usr/bin/uname -s) in
-    "FreeBSD")
-        if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f1) -lt "8" ]; then
-            echo "FreeBSD 8.0-RELEASE and above only." >&2
-            exit 1
-        fi
-        ID=/usr/bin/id
-        GREP=/usr/bin/grep
-        ZPOOL=/sbin/zpool
-        ZFS=/sbin/zfs
-        DATE=/bin/date
-        AWK=/usr/bin/awk
-        SED=/usr/bin/sed
-        ;;
-    "SunOS")
-        if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f2) -lt "10" ]; then
-            echo "Solaris 10 and above only." >&2
-            exit 1
-        fi
-        echo "WARNING: This script has not been tested on Solaris!" >&2
-        ID=/usr/bin/id
-        GREP=/usr/xpg4/bin/grep
-        ZPOOL=/usr/sbin/zpool
-        ZFS=/usr/sbin/zfs
-        DATE=/usr/bin/date
-        AWK=/usr/xpg4/bin/awk
-        SED=/usr/xpg4/bin/sed
-        ;;
-    *)
-        echo "$progname: FreeBSD 8.0-RELEASE and above or Solaris 10 and above only." >&2
-        exit 1
-        ;;
-esac
+if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f1) -lt "8" ]; then
+    echo "FreeBSD 8.0-RELEASE and above only." >&2
+    exit 1
+fi
+ID=/usr/bin/id
+GREP=/usr/bin/grep
+ZPOOL=/sbin/zpool
+ZFS=/sbin/zfs
+DATE=/bin/date
+AWK=/usr/bin/awk
+SED=/usr/bin/sed
 
 # Ensure we have the correct number of arguments, and are running as root.
 
