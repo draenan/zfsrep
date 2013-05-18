@@ -197,9 +197,10 @@ done
 # replicated snapshot on the destination pool.  If the same, no need to do
 # anything.
 
-snaps=$($ZFS list -r -t snapshot -H -o name -s creation $srcpool | $GREP "$srcpool@$snapname" | $SED "s/$srcpool@//")
+
+snaps=$($ZFS list -r -t snapshot -H -o name -s creation $srcpool | $GREP -E "$srcpool(.*)@(zfs-auto-snap_)?$snapname" | $SED "s/$srcpool.*@//")
 lastsnap=$(echo $snaps | $AWK '{ print $NF }')
-lastrep=$($ZFS list -r -t snapshot -H -o name -s creation $destpool | $GREP "$destpool@$snapname" | $AWK -F@ 'END { print $NF }')
+lastrep=$($ZFS list -r -t snapshot -H -o name -s creation $destpool | $GREP -E "$destpool(.*)@(zfs-auto-snap_)?$snapname" | $AWK -F@ 'END { print $NF }')
 
 if [ "X$lastsnap" == "X$lastrep" ]; then
     echo "$progname: No new snapshots to send. Exiting." >&2
