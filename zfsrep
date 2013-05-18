@@ -1,7 +1,5 @@
 #!/bin/sh -
 #
-# $Id: zfsrep,v 1.15 2012/07/07 14:22:05 awaters Exp $
-#
 ############################################################################
 #
 # zfsrep
@@ -212,4 +210,3 @@ fi
 expool
 exit
 
-# vi: set tabstop=4 shiftwidth=4 si ai nu:
