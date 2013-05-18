@@ -10,7 +10,7 @@
 #
 # This script automates incremental ZFS snapshot replication.
 #
-# If the "-m" option is specified and the destination pool is not already 
+# If the "-m" option is specified and the destination pool is not already
 # imported an attempt will be made to import it. If "-m" is not
 # specified the script will exit if the destination pool was not already
 # imported.
@@ -76,7 +76,7 @@ case $(/usr/bin/uname -s) in
         if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f1) -lt "8" ]; then
             echo "FreeBSD 8.0-RELEASE and above only." >&2
             exit 1
-        fi  
+        fi
         ID=/usr/bin/id
         GREP=/usr/bin/grep
         ZPOOL=/sbin/zpool
@@ -89,7 +89,7 @@ case $(/usr/bin/uname -s) in
         if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f2) -lt "10" ]; then
             echo "Solaris 10 and above only." >&2
             exit 1
-        fi  
+        fi
         echo "WARNING: This script has not been tested on Solaris!" >&2
         ID=/usr/bin/id
         GREP=/usr/xpg4/bin/grep
@@ -152,7 +152,7 @@ fi
 
 # Sanitize the input for "snapname."
 #
-# Note that the ":" character is valid for ZFS filesystem/snapshot names, 
+# Note that the ":" character is valid for ZFS filesystem/snapshot names,
 # but will cause issues on FreeBSD if you are sharing that filesystem via
 # userland Samba.  This problem does not exist on Solaris as CIFS sharing is
 # integrated into the kernel and controlled via the ZFS "sharesmb" property,
@@ -220,10 +220,10 @@ if [ "$?" -eq "0" ]; then
 else
     if [ ! -z "$lastrep" ]; then
         echo "$progname: The last-replicated snapshot \"$destpool@$lastrep\" no longer exists on \"$srcpool\"."
-		echo "$progname: Unable to do an incremental replication. Exiting."
+        echo "$progname: Unable to do an incremental replication. Exiting."
         expool
         exit 1
-    fi  
+    fi
 fi
 
 # Perform the snapshot replication between the source and destination pools.
@@ -235,7 +235,7 @@ if [ -z "$lastrep" ]; then
     $ZFS send -R $srcpool@$lastsnap | $ZFS recv -d -F $destpool
 else
     $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F $destpool
-fi  
+fi
 expool
 exit
 
