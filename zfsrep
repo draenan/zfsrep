@@ -40,7 +40,7 @@ PATH=/bin:/usr/bin
 progname=${0##*/}
 
 usage () {
-    echo "Usage: $progname [-m] [-S] -s snapname srcpool destpool" >&2
+    echo "Usage: $progname [-v] [-m] [-S] -s snapname srcpool destpool" >&2
     exit 1
 }
 
@@ -51,6 +51,7 @@ usage () {
 expool () {
     if [ ! -z "$scrubdest" ]; then
         imported=
+        [ ! -z $verbose ] && echo "Initiating scrub of \"$destpool\"."
         $ZPOOL scrub $destpool
     else
         if [ ! -z "$imported" ]; then
@@ -92,19 +93,22 @@ fi
 
 # Gather the arguments.
 
-scrubdest= snapname= import= srcpool= destpool=
+scrubdest= snapname= import= srcpool= destpool= verbose=
 
-while getopts :mSs: opt; do
+while getopts :vmSs: opt; do
     case $opt in
+        v)
+            verbose="-v"
+            ;;
+        m)
+            import=1
+            imported=
+            ;;
         S)
             scrubdest=1
             ;;
         s)
             snapname=$OPTARG
-            ;;
-        m)
-            import=1
-            imported=
             ;;
         '?')
             usage
@@ -207,9 +211,9 @@ fi
 # exit codes from both sides of a pipe.
 
 if [ -z "$lastrep" ]; then
-    $ZFS send -R $srcpool@$lastsnap | $ZFS recv -d -F -u $destpool
+    $ZFS send -R $srcpool@$lastsnap | $ZFS recv -d -F -u $verbose $destpool
 else
-    $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F -u $destpool
+    $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F -u $verbose $destpool
 fi
 expool
 exit
