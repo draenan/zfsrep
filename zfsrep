@@ -152,7 +152,7 @@ for pool in $srcpool $destpool; do
            echo "$progname: \"$pool\" is not available. Exiting." >&2
            exit 1
         else
-            $ZPOOL import $destpool > /dev/null 2>&1
+            $ZPOOL import -N $destpool > /dev/null 2>&1
             if [ "$?" -ne "0" ]; then
                echo "$progname: Could not import ZFS pool \"$destpool\". Exiting." >&2
                exit 1
@@ -166,7 +166,6 @@ done
 # destination pools.  Compare the last snapshot on the source pool to the last
 # replicated snapshot on the destination pool.  If the same, no need to do
 # anything.
-
 
 snaps=$($ZFS list -r -t snapshot -H -o name -s creation $srcpool | $GREP -E "$srcpool(.*)@(zfs-auto-snap_)?$snapname" | $SED "s/$srcpool.*@//")
 lastsnap=$(echo $snaps | $AWK '{ print $NF }')
@@ -203,9 +202,9 @@ fi
 # exit codes from both sides of a pipe.
 
 if [ -z "$lastrep" ]; then
-    $ZFS send -R $srcpool@$lastsnap | $ZFS recv -d -F $destpool
+    $ZFS send -R $srcpool@$lastsnap | $ZFS recv -d -F -u $destpool
 else
-    $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F $destpool
+    $ZFS send -R -I $srcpool@$start $srcpool@$lastsnap | $ZFS recv -d -F -u $destpool
 fi
 expool
 exit
