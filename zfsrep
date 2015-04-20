@@ -54,10 +54,13 @@ expool () {
         $ZPOOL scrub $destpool
     else
         if [ ! -z "$imported" ]; then
-        $ZPOOL export $destpool > /dev/null 2>&1
+            $ZPOOL export $destpool > /dev/null 2>&1
             if [ "$?" -ne "0" ]; then
                 echo "$progname: Could not export \"$destpool\". Exiting." >&2
                 exit 1
+            fi
+            if [ -e "$altroot" ]; then
+                /bin/rm -r $altroot
             fi
         fi
     fi
@@ -67,6 +70,7 @@ if [ $(/usr/bin/uname -r | /usr/bin/cut -d. -f1) -lt "8" ]; then
     echo "FreeBSD 8.0-RELEASE and above only." >&2
     exit 1
 fi
+
 ID=/usr/bin/id
 GREP=/usr/bin/grep
 ZPOOL=/sbin/zpool
@@ -112,6 +116,7 @@ shift $((OPTIND - 1))
 
 srcpool=$1
 destpool=$2
+altroot=
 
 # All three of "srcpool", "destpool", and "snapname" must be provided.
 
@@ -152,7 +157,7 @@ for pool in $srcpool $destpool; do
            echo "$progname: \"$pool\" is not available. Exiting." >&2
            exit 1
         else
-            $ZPOOL import -N $destpool > /dev/null 2>&1
+            altroot=$(/usr/bin/mktemp -d /tmp/zfsrep-XXXXXX 2>/dev/null) && $ZPOOL import -R $altroot $destpool > /dev/null 2>&1
             if [ "$?" -ne "0" ]; then
                echo "$progname: Could not import ZFS pool \"$destpool\". Exiting." >&2
                exit 1
