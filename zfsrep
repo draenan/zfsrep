@@ -179,7 +179,8 @@ done
 
 snaps=$($ZFS list -r -t snapshot -H -o name -s creation $srcpool | $GREP -E "$srcpool(.*)@(zfs-auto-snap_)?$snapname" | $SED "s/$srcpool.*@//")
 lastsnap=$(echo $snaps | $AWK '{ print $NF }')
-lastrep=$($ZFS list -r -t snapshot -H -o name -s creation $destpool | $GREP -E "$destpool(.*)@(zfs-auto-snap_)?$snapname" | $AWK -F@ 'END { print $NF }')
+reps=$($ZFS list -r -t snapshot -H -o name -s creation $destpool | $GREP -E "$destpool(.*)@(zfs-auto-snap_)?$snapname")
+[ ! -z $reps ] && lastrep=$(echo $reps | $AWK -F@ 'END { print $NF }')
 
 if [ "X$lastsnap" == "X$lastrep" ]; then
     echo "$progname: No new snapshots to send. Exiting." >&2
@@ -187,22 +188,25 @@ if [ "X$lastsnap" == "X$lastrep" ]; then
     exit 1
 fi
 
-# Check that the last replicated snapshot is still available on the source
-# pool (unless there was no lastrep, in which case assume this is the first
-# replication.)  If not (presumably because there is a rolling snapshot
-# schedule in place and the replication hasn't happened in time for the last
-# rep to fall off the list) don't do anything as we can't perform incremental
-# replication from a non-existant source.
+# If the destination pool has snapshots, check that the last replicated
+# snapshot is still available on the source pool (unless there was no lastrep,
+# in which case assume this is the first replication.)  If not (presumably
+# because there is a rolling snapshot schedule in place and the replication
+# hasn't happened in time for the last rep to fall off the list) don't do
+# anything as we can't perform incremental replication from a non-existant
+# source.
 
-echo $snaps | $GREP $lastrep > /dev/null 2>&1
-if [ "$?" -eq "0" ]; then
-    start=$lastrep
-else
-    if [ ! -z "$lastrep" ]; then
-        echo "$progname: The last-replicated snapshot \"$destpool@$lastrep\" no longer exists on \"$srcpool\"."
-        echo "$progname: Unable to do an incremental replication. Exiting."
-        expool
-        exit 1
+if [ ! -z $lastsnap ]; then
+    echo $snaps | $GREP $lastrep > /dev/null 2>&1
+    if [ "$?" -eq "0" ]; then
+        start=$lastrep
+    else
+        if [ ! -z "$lastrep" ]; then
+            echo "$progname: The last-replicated snapshot \"$destpool@$lastrep\" no longer exists on \"$srcpool\"."
+            echo "$progname: Unable to do an incremental replication. Exiting."
+            expool
+            exit 1
+        fi
     fi
 fi
 
