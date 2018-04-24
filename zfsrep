@@ -33,7 +33,7 @@
 #
 ############################################################################
 
-defIFS="$(printf " \t\nx")"; defIFS="${IFS%x}"
+defIFS="$(printf " \t\nx")"; defIFS="${defIFS%x}"
 IFS="$defIFS"
 
 PATH=/bin:/usr/bin
