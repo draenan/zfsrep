@@ -52,7 +52,7 @@ usage () {
 expool () {
     if [ ! -z "$scrubdest" ]; then
         imported=
-        [ ! -z $verbose ] && echo "Initiating scrub of \"$destpool\"."
+        [ ! -z "$verbose" ] && echo "Initiating scrub of \"$destpool\"."
         $ZPOOL scrub $destpool
     else
         if [ ! -z "$imported" ]; then
@@ -180,7 +180,7 @@ done
 snaps=$($ZFS list -r -t snapshot -H -o name -s creation $srcpool | $GREP -E "$srcpool(.*)@(zfs-auto-snap_)?$snapname" | $SED "s/$srcpool.*@//")
 lastsnap=$(echo $snaps | $AWK '{ print $NF }')
 reps=$($ZFS list -r -t snapshot -H -o name -s creation $destpool | $GREP -E "$destpool(.*)@(zfs-auto-snap_)?$snapname")
-[ ! -z $reps ] && lastrep=$(echo $reps | $AWK -F@ 'END { print $NF }')
+[ ! -z "$reps" ] && lastrep=$(echo $reps | $AWK -F@ 'END { print $NF }')
 
 if [ "X$lastsnap" == "X$lastrep" ]; then
     echo "$progname: No new snapshots to send. Exiting." >&2
@@ -196,7 +196,7 @@ fi
 # anything as we can't perform incremental replication from a non-existant
 # source.
 
-if [ ! -z $lastsnap ]; then
+if [ ! -z "$lastsnap" ]; then
     echo $snaps | $GREP $lastrep > /dev/null 2>&1
     if [ "$?" -eq "0" ]; then
         start=$lastrep
